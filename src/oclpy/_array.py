@@ -18,6 +18,14 @@ class Array:
         self._shape = tuple(data.shape) if shape is None else tuple(shape)
 
     @property
+    def _backend_shape(self):
+        return tuple(self._data.shape)
+
+    @property
+    def _uses_shape_metadata(self):
+        return self.shape != self._backend_shape
+
+    @property
     def shape(self):
         return self._shape
 
@@ -74,7 +82,7 @@ class Array:
         return (self[index] for index in range(self.shape[0]))
 
     def __getitem__(self, key):
-        if self.shape != tuple(self._data.shape):
+        if self._uses_shape_metadata:
             result = np.asarray(self)[key]
             return Array._coerce(result) if hasattr(result, "shape") else result
         result = self._data[key]
@@ -124,3 +132,7 @@ def wrap(data):
 
 def unwrap(data):
     return data._data if isinstance(data, Array) else data
+
+
+def uses_shape_metadata(data):
+    return isinstance(data, Array) and data._uses_shape_metadata

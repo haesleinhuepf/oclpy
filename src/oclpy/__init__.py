@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import numpy as _np
 
-from ._array import Array, unwrap
+from ._array import Array, unwrap, uses_shape_metadata
 from ._backend import get_backend, set_backend
 from ._dtypes import *
 from ._dtypes import normalize_dtype, require_supported
@@ -34,7 +34,25 @@ def _from_host(host, *, dtype, device=None):
 
 
 def _logical_shape(shape, size):
-    return _np.empty(size).reshape(shape).shape
+    shape = _shape_tuple(shape)
+    unknown = None
+    known_size = 1
+    for index, length in enumerate(shape):
+        if length == -1:
+            if unknown is not None:
+                raise ValueError("can only specify one unknown dimension")
+            unknown = index
+            continue
+        if length < 0:
+            raise ValueError("negative dimensions are not allowed")
+        known_size *= length
+    if unknown is None:
+        if known_size != size:
+            raise ValueError(f"cannot reshape array of size {size} into shape {shape}")
+        return shape
+    if known_size == 0 or size % known_size != 0:
+        raise ValueError(f"cannot reshape array of size {size} into shape {shape}")
+    return shape[:unknown] + (size // known_size,) + shape[unknown + 1:]
 
 
 def asarray(obj, /, *, dtype=None, device=None, copy=None):
@@ -132,16 +150,18 @@ def positive(x, /):
 
 
 def matmul(x1, x2, /):
+    if x1.ndim != 2 or x2.ndim != 2:
+        return asarray(_np.matmul(asnumpy(x1), asnumpy(x2)))
     backend = get_backend()
     function = getattr(backend, "multiply_matrix", None)
-    if function is None or x1.ndim != 2 or x2.ndim != 2:
-        return asarray(_np.matmul(asnumpy(x1), asnumpy(x2)))
+    if function is None:
+        raise NotImplementedError("pyclesperanto does not expose multiply_matrix")
     return Array(function(unwrap(x1), unwrap(x2)))
 
 
 def permute_dims(x, axes, /):
     axes = tuple(axes)
-    if x.ndim == 2 and axes == (1, 0) and x.shape == tuple(unwrap(x).shape):
+    if x.ndim == 2 and axes == (1, 0) and not uses_shape_metadata(x):
         return Array(get_backend().transpose_xy(unwrap(x)))
     return asarray(_np.transpose(asnumpy(x), axes))
 
@@ -149,7 +169,7 @@ def permute_dims(x, axes, /):
 def reshape(x, shape, /, *, copy=None):
     shape = _logical_shape(shape, x.size)
     method = getattr(unwrap(x), "reshape", None)
-    if method is not None and len(shape) <= 3 and x.shape == tuple(unwrap(x).shape):
+    if method is not None and len(shape) <= 3 and not uses_shape_metadata(x):
         return Array(method(shape))
     return Array(unwrap(x), shape=shape)
 
