@@ -13,12 +13,21 @@ class Array:
 
     __array_priority__ = 1000
 
-    def __init__(self, data: Any):
+    def __init__(self, data: Any, *, shape: tuple[int, ...] | None = None):
         self._data = data
+        self._shape = tuple(data.shape) if shape is None else tuple(shape)
+
+    @property
+    def _backend_shape(self):
+        return tuple(self._data.shape)
+
+    @property
+    def _uses_shape_metadata(self):
+        return self.shape != self._backend_shape
 
     @property
     def shape(self):
-        return tuple(self._data.shape)
+        return self._shape
 
     @property
     def ndim(self):
@@ -55,7 +64,7 @@ class Array:
         return oclpy
 
     def __array__(self, dtype=None, copy=None):
-        result = get_backend().pull(self._data)
+        result = np.asarray(get_backend().pull(self._data)).reshape(self.shape)
         if dtype is not None:
             result = np.asarray(result, dtype=dtype)
         if copy is True:
@@ -70,9 +79,15 @@ class Array:
     def __iter__(self) -> Iterator["Array"]:
         if self.ndim == 0:
             raise TypeError("iteration over a 0-d array")
-        return (Array(item) for item in self._data)
+        if self._uses_shape_metadata:
+            host = np.asarray(self)
+            return (coerce(item) if hasattr(item, "shape") else item for item in host)
+        return (self[index] for index in range(self.shape[0]))
 
     def __getitem__(self, key):
+        if self._uses_shape_metadata:
+            result = np.asarray(self)[key]
+            return coerce(result) if hasattr(result, "shape") else result
         result = self._data[key]
         return Array(result) if hasattr(result, "shape") else result
 
@@ -92,11 +107,11 @@ class Array:
     __add__ = lambda self, other: self._binary(other, "add")
     __radd__ = __add__
     __sub__ = lambda self, other: self._binary(other, "subtract")
-    __rsub__ = lambda self, other: Array._coerce(other)._binary(self, "subtract")
+    __rsub__ = lambda self, other: coerce(other)._binary(self, "subtract")
     __mul__ = lambda self, other: self._binary(other, "multiply")
     __rmul__ = __mul__
     __truediv__ = lambda self, other: self._binary(other, "divide")
-    __rtruediv__ = lambda self, other: Array._coerce(other)._binary(self, "divide")
+    __rtruediv__ = lambda self, other: coerce(other)._binary(self, "divide")
     __pow__ = lambda self, other: self._binary(other, "pow")
     __eq__ = lambda self, other: self._binary(other, "equal")
     __ne__ = lambda self, other: self._binary(other, "not_equal")
@@ -118,5 +133,13 @@ def wrap(data):
     return data if isinstance(data, Array) else Array(data)
 
 
+def coerce(value):
+    return Array._coerce(value)
+
+
 def unwrap(data):
     return data._data if isinstance(data, Array) else data
+
+
+def uses_shape_metadata(data):
+    return isinstance(data, Array) and data._uses_shape_metadata
