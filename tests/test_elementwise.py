@@ -18,6 +18,14 @@ def test_operators_and_broadcast_scalar():
     np.testing.assert_array_equal(xp.asnumpy((x + 1) * 2), [4, 6])
 
 
+def test_four_dimensional_broadcasting_preserves_shape():
+    x = xp.asarray(np.arange(2 * 3 * 4 * 5, dtype=np.float32).reshape(2, 3, 4, 5))
+    y = xp.asarray(np.arange(5, dtype=np.float32))
+    result = xp.add(x, y)
+    assert result.shape == (2, 3, 4, 5)
+    np.testing.assert_array_equal(xp.asnumpy(result), np.arange(2 * 3 * 4 * 5, dtype=np.float32).reshape(2, 3, 4, 5) + np.arange(5, dtype=np.float32))
+
+
 @pytest.mark.parametrize("operation,expected", [(xp.less, [True, False]), (xp.equal, [False, True])])
 def test_comparisons(operation, expected):
     x = xp.asarray([1, 2], dtype=xp.float32)

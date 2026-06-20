@@ -30,6 +30,14 @@ def test_backend_rejects_unsupported_dtype(dtype):
         xp.asarray([1], dtype=dtype)
 
 
-def test_backend_dimension_limit_is_explicit():
-    with pytest.raises(ValueError, match="at most three"):
-        xp.asarray(np.zeros((1, 1, 1, 1), dtype=np.float32))
+def test_asarray_round_trips_four_dimensional_data():
+    data = np.arange(2 * 3 * 4 * 5, dtype=np.float32).reshape(2, 3, 4, 5)
+    result = xp.asarray(data)
+    assert result.shape == data.shape
+    np.testing.assert_array_equal(xp.asnumpy(result), data)
+
+
+def test_creation_factories_support_four_dimensions():
+    shape = (2, 3, 4, 5)
+    np.testing.assert_array_equal(xp.asnumpy(xp.zeros(shape, dtype=xp.float32)), np.zeros(shape, dtype=np.float32))
+    np.testing.assert_array_equal(xp.asnumpy(xp.ones(shape, dtype=xp.float32)), np.ones(shape, dtype=np.float32))

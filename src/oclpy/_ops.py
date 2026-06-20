@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import operator
+import numpy as np
 
 from ._array import Array, unwrap
 
@@ -20,4 +21,9 @@ _OPERATORS = {
 
 
 def binary(name, x1, x2):
+    if any(
+        isinstance(value, Array) and value.shape != tuple(unwrap(value).shape)
+        for value in (x1, x2)
+    ):
+        return Array._coerce(_OPERATORS[name](np.asarray(x1), np.asarray(x2)))
     return Array(_OPERATORS[name](unwrap(x1), unwrap(x2)))

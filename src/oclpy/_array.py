@@ -13,12 +13,13 @@ class Array:
 
     __array_priority__ = 1000
 
-    def __init__(self, data: Any):
+    def __init__(self, data: Any, *, shape: tuple[int, ...] | None = None):
         self._data = data
+        self._shape = tuple(data.shape) if shape is None else tuple(shape)
 
     @property
     def shape(self):
-        return tuple(self._data.shape)
+        return self._shape
 
     @property
     def ndim(self):
@@ -55,7 +56,7 @@ class Array:
         return oclpy
 
     def __array__(self, dtype=None, copy=None):
-        result = get_backend().pull(self._data)
+        result = np.asarray(get_backend().pull(self._data)).reshape(self.shape)
         if dtype is not None:
             result = np.asarray(result, dtype=dtype)
         if copy is True:
@@ -70,9 +71,12 @@ class Array:
     def __iter__(self) -> Iterator["Array"]:
         if self.ndim == 0:
             raise TypeError("iteration over a 0-d array")
-        return (Array(item) for item in self._data)
+        return (self[index] for index in range(self.shape[0]))
 
     def __getitem__(self, key):
+        if self.shape != tuple(self._data.shape):
+            result = np.asarray(self)[key]
+            return Array._coerce(result) if hasattr(result, "shape") else result
         result = self._data[key]
         return Array(result) if hasattr(result, "shape") else result
 

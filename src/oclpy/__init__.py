@@ -13,6 +13,30 @@ __version__ = "0.1.0"
 __array_api_version__ = "2023.12"
 
 
+def _shape_tuple(shape):
+    return (shape,) if isinstance(shape, int) else tuple(shape)
+
+
+def _buffer_shape(shape):
+    shape = _shape_tuple(shape)
+    if len(shape) <= 3:
+        return shape
+    size = 1
+    for length in shape:
+        size *= length
+    return (size,)
+
+
+def _from_host(host, *, dtype, device=None):
+    shape = host.shape
+    buffer = host.reshape(_buffer_shape(shape))
+    return Array(get_backend().push(buffer, dtype=dtype, device=device), shape=shape)
+
+
+def _logical_shape(shape, size):
+    return _np.empty(size).reshape(shape).shape
+
+
 def asarray(obj, /, *, dtype=None, device=None, copy=None):
     if isinstance(obj, Array) and dtype is None and copy is not True:
         return obj
@@ -20,11 +44,9 @@ def asarray(obj, /, *, dtype=None, device=None, copy=None):
         obj = asnumpy(obj)
     host = _np.asarray(obj, dtype=normalize_dtype(dtype))
     dtype = require_supported(host.dtype)
-    if host.ndim > 3:
-        raise ValueError("pyclesperanto supports at most three dimensions")
     if copy is True:
         host = host.copy()
-    return Array(get_backend().push(host, dtype=dtype, device=device))
+    return _from_host(host, dtype=dtype, device=device)
 
 
 def asnumpy(x, /):
@@ -32,15 +54,18 @@ def asnumpy(x, /):
 
 
 def empty(shape, *, dtype=float32, device=None):
-    return Array(get_backend().empty(shape, dtype=require_supported(dtype), device=device))
+    shape = _shape_tuple(shape)
+    return Array(get_backend().empty(_buffer_shape(shape), dtype=require_supported(dtype), device=device), shape=shape)
 
 
 def zeros(shape, *, dtype=float32, device=None):
-    return Array(get_backend().zeros(shape, dtype=require_supported(dtype), device=device))
+    shape = _shape_tuple(shape)
+    return Array(get_backend().zeros(_buffer_shape(shape), dtype=require_supported(dtype), device=device), shape=shape)
 
 
 def ones(shape, *, dtype=float32, device=None):
-    return Array(get_backend().ones(shape, dtype=require_supported(dtype), device=device))
+    shape = _shape_tuple(shape)
+    return Array(get_backend().ones(_buffer_shape(shape), dtype=require_supported(dtype), device=device), shape=shape)
 
 
 def full(shape, fill_value, *, dtype=None, device=None):
@@ -78,7 +103,7 @@ def astype(x, dtype, /, *, copy=True, device=None):
     dtype = require_supported(dtype)
     if not copy and dtype == x.dtype and (device is None or device == x.device):
         return x
-    return Array(unwrap(x).astype(dtype))
+    return Array(unwrap(x).astype(dtype), shape=x.shape)
 
 
 def _binary(name):
@@ -109,23 +134,24 @@ def positive(x, /):
 def matmul(x1, x2, /):
     backend = get_backend()
     function = getattr(backend, "multiply_matrix", None)
-    if function is None:
-        raise NotImplementedError("pyclesperanto does not expose multiply_matrix")
+    if function is None or x1.ndim != 2 or x2.ndim != 2:
+        return asarray(_np.matmul(asnumpy(x1), asnumpy(x2)))
     return Array(function(unwrap(x1), unwrap(x2)))
 
 
 def permute_dims(x, axes, /):
     axes = tuple(axes)
-    if x.ndim == 2 and axes == (1, 0):
+    if x.ndim == 2 and axes == (1, 0) and x.shape == tuple(unwrap(x).shape):
         return Array(get_backend().transpose_xy(unwrap(x)))
-    raise NotImplementedError("pyclesperanto only provides direct 2D transpose support")
+    return asarray(_np.transpose(asnumpy(x), axes))
 
 
 def reshape(x, shape, /, *, copy=None):
+    shape = _logical_shape(shape, x.size)
     method = getattr(unwrap(x), "reshape", None)
-    if method is None:
-        raise NotImplementedError("pyclesperanto does not expose device-side reshape")
-    return Array(method(shape))
+    if method is not None and len(shape) <= 3 and x.shape == tuple(unwrap(x).shape):
+        return Array(method(shape))
+    return Array(unwrap(x), shape=shape)
 
 
 def _reduction(method):
