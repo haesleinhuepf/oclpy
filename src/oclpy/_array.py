@@ -79,6 +79,9 @@ class Array:
     def __iter__(self) -> Iterator["Array"]:
         if self.ndim == 0:
             raise TypeError("iteration over a 0-d array")
+        if self._uses_shape_metadata:
+            host = np.asarray(self)
+            return (Array._coerce(item) if hasattr(item, "shape") else item for item in host)
         return (self[index] for index in range(self.shape[0]))
 
     def __getitem__(self, key):
