@@ -1,0 +1,22 @@
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[project]
+name = "oclpy"
+version = "0.1.0"
+description = "A Python Array API implementation backed by pyclesperanto"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "BSD-3-Clause" }
+dependencies = ["numpy>=1.26", "pyclesperanto>=0.18"]
+
+[project.optional-dependencies]
+test = ["array-api-strict>=2.3", "pytest>=8", "pytest-cov>=5"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/oclpy"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
