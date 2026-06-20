@@ -24,10 +24,16 @@ def test_full_and_arange():
     np.testing.assert_array_equal(xp.asnumpy(xp.arange(1, 5, dtype=xp.int32)), [1, 2, 3, 4])
 
 
-@pytest.mark.parametrize("dtype", [xp.bool, xp.int64, xp.uint64, xp.float64])
-def test_backend_rejects_unsupported_dtype(dtype):
-    with pytest.raises(TypeError, match="not supported"):
-        xp.asarray([1], dtype=dtype)
+@pytest.mark.parametrize("dtype,expected", [
+    (xp.bool, xp.int8),
+    (xp.int64, xp.int32),
+    (xp.uint64, xp.uint32),
+    (xp.float64, xp.float32),
+])
+def test_unsupported_dtype_falls_back_with_warning(dtype, expected):
+    with pytest.warns(UserWarning, match="falling back"):
+        arr = xp.asarray([1], dtype=dtype)
+    assert arr.dtype == expected
 
 
 def test_asarray_round_trips_four_dimensional_data():

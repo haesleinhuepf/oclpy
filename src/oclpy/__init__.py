@@ -29,6 +29,10 @@ def _buffer_shape(shape):
 
 def _from_host(host, *, dtype, device=None):
     shape = host.shape
+    # dtype may differ from host.dtype when require_supported() has selected a
+    # fallback; cast before pushing so the device buffer has the correct type.
+    if host.dtype != dtype:
+        host = host.astype(dtype)
     buffer = host.reshape(_buffer_shape(shape))
     return Array(get_backend().push(buffer, dtype=dtype, device=device), shape=shape)
 
