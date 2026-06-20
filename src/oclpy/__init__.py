@@ -150,7 +150,7 @@ def positive(x, /):
 
 
 def matmul(x1, x2, /):
-    if x1.ndim > 2 or x2.ndim > 2 or uses_shape_metadata(x1) or uses_shape_metadata(x2):
+    if (x1.ndim > 2 or x2.ndim > 2) or (uses_shape_metadata(x1) or uses_shape_metadata(x2)):
         return asarray(_np.matmul(asnumpy(x1), asnumpy(x2)))
     backend = get_backend()
     function = getattr(backend, "multiply_matrix", None)

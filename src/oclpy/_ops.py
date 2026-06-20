@@ -3,7 +3,7 @@ from __future__ import annotations
 import operator
 import numpy as np
 
-from ._array import Array, unwrap, uses_shape_metadata
+from ._array import Array, coerce, unwrap, uses_shape_metadata
 
 _OPERATORS = {
     "add": operator.add,
@@ -22,5 +22,5 @@ _OPERATORS = {
 
 def binary(name, x1, x2):
     if any(uses_shape_metadata(value) for value in (x1, x2)):
-        return Array._coerce(_OPERATORS[name](np.asarray(x1), np.asarray(x2)))
+        return coerce(_OPERATORS[name](np.asarray(x1), np.asarray(x2)))
     return Array(_OPERATORS[name](unwrap(x1), unwrap(x2)))

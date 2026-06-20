@@ -81,13 +81,13 @@ class Array:
             raise TypeError("iteration over a 0-d array")
         if self._uses_shape_metadata:
             host = np.asarray(self)
-            return (Array._coerce(item) if hasattr(item, "shape") else item for item in host)
+            return (coerce(item) if hasattr(item, "shape") else item for item in host)
         return (self[index] for index in range(self.shape[0]))
 
     def __getitem__(self, key):
         if self._uses_shape_metadata:
             result = np.asarray(self)[key]
-            return Array._coerce(result) if hasattr(result, "shape") else result
+            return coerce(result) if hasattr(result, "shape") else result
         result = self._data[key]
         return Array(result) if hasattr(result, "shape") else result
 
@@ -107,11 +107,11 @@ class Array:
     __add__ = lambda self, other: self._binary(other, "add")
     __radd__ = __add__
     __sub__ = lambda self, other: self._binary(other, "subtract")
-    __rsub__ = lambda self, other: Array._coerce(other)._binary(self, "subtract")
+    __rsub__ = lambda self, other: coerce(other)._binary(self, "subtract")
     __mul__ = lambda self, other: self._binary(other, "multiply")
     __rmul__ = __mul__
     __truediv__ = lambda self, other: self._binary(other, "divide")
-    __rtruediv__ = lambda self, other: Array._coerce(other)._binary(self, "divide")
+    __rtruediv__ = lambda self, other: coerce(other)._binary(self, "divide")
     __pow__ = lambda self, other: self._binary(other, "pow")
     __eq__ = lambda self, other: self._binary(other, "equal")
     __ne__ = lambda self, other: self._binary(other, "not_equal")
@@ -131,6 +131,10 @@ class Array:
 
 def wrap(data):
     return data if isinstance(data, Array) else Array(data)
+
+
+def coerce(value):
+    return Array._coerce(value)
 
 
 def unwrap(data):
